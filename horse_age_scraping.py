@@ -1,5 +1,11 @@
 #function to scrape the foal date of all the horses of which the first race date was found
 
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+import urllib.request
+from bs4 import BeautifulSoup
+import threading
+
 def find_foal_date_1(name_list):
     results = list()
     url = 'https://www.racenet.com.au'
