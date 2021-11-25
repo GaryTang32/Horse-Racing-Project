@@ -3,6 +3,8 @@ import requests
 import datetime
 import pandas as pd
 from bs4 import BeautifulSoup
+import os
+import subprocess
 
 MAX_AIR_TAG = ['maximum', 'air']
 REL_HUMI_TAG = ['relative', 'humidity']
@@ -10,13 +12,18 @@ SHA_TIN_TAG = ['sha', 'tin']
 HAPPY_VELLEY_TAG = ['happy', 'valley']
 HONG_KONG_PARK_TAG = ['hong', 'kong', 'park']
 
+#needs to be changed
+mongopath = r'C:\Program Files\MongoDB\Server\4.2\bin'
+
+
 def get_weather_data():
     weather_data = pd.DataFrame(
         {'year': [], 'month': [], 'day': [], 'humidity': [], 'sha_tin_min': [], 'sha_tin_max': [], 'happy_velley_min': [],
          'happy_velley_max': []})
 
     day1 = datetime.date(2008, 1, 1)
-    day2 = datetime.date(2019, 9, 9)
+    #day2 = datetime.date(2019, 9, 9)
+    day2 = datetime.date(2008, 1, 7)
     # Max date = 20190910
 
 
@@ -63,7 +70,8 @@ def get_weather_data():
         weather_data = weather_data.append(data, ignore_index=True)
 
     day1 = datetime.date(2019, 9, 10)
-    day2 = datetime.date(2021, 10, 30)
+    #day2 = datetime.date(2021, 10, 30)
+    day2 = datetime.date(2019, 9, 16)
     # day2 = datetime.date(2021, 10, 30)
 
     days = [day1 + datetime.timedelta(days=x) for x in range((day2 - day1).days + 1)]
@@ -108,3 +116,29 @@ def get_weather_data():
                 }
         weather_data = weather_data.append(data, ignore_index=True)
     return weather_data
+
+weather_data = get_weather_data()
+
+#Added by Pasindu
+mongoscript = ""
+data_dictionary = dict(weather_data)
+for row_idx in range(weather_data.shape[0]):
+    mongoscript += f'{{"year":{data_dictionary["year"][row_idx]},"month":{data_dictionary["month"][row_idx]},"day":{data_dictionary["day"][row_idx]},"humidity":{data_dictionary["humidity"][row_idx]},"sha_tin_min":{data_dictionary["sha_tin_min"][row_idx]},"sha_tin_max":{data_dictionary["sha_tin_max"][row_idx]},"happy_velley_min":{data_dictionary["happy_velley_min"][row_idx]},"happy_velley_max":{data_dictionary["happy_velley_max"][row_idx]}}}'
+    if row_idx != weather_data.shape[0] - 1:
+        mongoscript = mongoscript + ","
+
+mongoscript = "\ndb.WeatherData.insertMany([" + mongoscript + "])"
+mongoshellcmd = ['db.dropDatabase()',mongoscript]
+with open('weatherdata_script.txt','w') as f:
+    for cmd in mongoshellcmd:
+        f.writelines(cmd)
+
+mongocmd = f'\nmongo HorseRacing "{os.path.join(os.getcwd(),"weatherdata_script.txt")}"'
+cmd_list = [f'cd {mongopath}',mongocmd]
+
+with open('weatherdata_script.bat','w') as f:
+    for cmd in cmd_list:
+        f.writelines(cmd)
+output = subprocess.call([os.path.join(os.getcwd(),'weatherdata_script.bat')])
+print('Uploaded successfully' if output == 0 else "Upload unsuccessful")
+
