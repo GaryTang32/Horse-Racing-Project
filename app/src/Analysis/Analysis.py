@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
+# from dao import weather_data_dao
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -149,22 +150,39 @@ if __name__ == '__main__':
     df_horse = horse_preprocessing(df_horse)
     df_sectinoal = sectional_preprocessing(df_sectional)
 
+    #
 
-    print(df_records.shape[0])
-    print(df_records.info())
+    # print(df_records.shape[0])
+    # print(df_records.info())
     df_records_jockey = df_records.merge(df_jockeys, on='Jockey_ID', how='left')
-    print(df_records_jockey.shape[0])
-    print(df_records_jockey.info())
+    # print(df_records_jockey.shape[0])
+    # print(df_records_jockey.info())
     df_records_jockey_trainer = df_records_jockey.merge(df_trainer, on='Trainer_ID', how='left')
-    print(df_records_jockey_trainer.shape[0])
-    print(df_records_jockey_trainer.info())
+    # print(df_records_jockey_trainer.shape[0])
+    # print(df_records_jockey_trainer.info())
     df_records_jockey_trainer_race = df_records_jockey_trainer.merge(df_races, on='Race_ID', how='left')
-    print(df_records_jockey_trainer_race.shape[0])
-    print(df_records_jockey_trainer_race.info())
+    # print(df_records_jockey_trainer_race.shape[0])
+    # print(df_records_jockey_trainer_race.info())
     df_records_jockey_trainer_race_horse = df_records_jockey_trainer_race.merge(df_horse, on='Horse_ID', how='left')
-    print(df_records_jockey_trainer_race_horse.shape[0])
-    print(df_records_jockey_trainer_race_horse.info())
+    # print(df_records_jockey_trainer_race_horse.shape[0])
+    # print(df_records_jockey_trainer_race_horse.info())
     df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer_race_horse.merge(df_sectional, left_on=['Horse_ID', 'Race_ID'], right_on=['Horse_ID','Race_ID'], how='left')
-    print(df_records_jockey_trainer_race_horse_sectional.shape[0])
+    # print(df_records_jockey_trainer_race_horse_sectional.shape[0])
+    #
+
+    print(df_records_jockey_trainer_race_horse_sectional['Date'].head())
+
+    weather_data = pd.read_csv('weather_data.csv')
+    print(weather_data['month'])
+    weather_data['year'] = weather_data['year'].astype('object')
+    weather_data['month'] = weather_data['month'].astype('object')
+    weather_data['day'] = weather_data['day'].astype('object')
+
+    weather_data['month'] = weather_data['month'].apply(lambda x : str(x).rjust(2,'0'))
+    weather_data['day'] = weather_data['day'].apply(lambda x : str(x).rjust(2,'0'))
+
+    weather_data['Date'] = weather_data.apply(lambda x: str(x['year']) + '-' + str(x['month']) + '-' + str(x['day']), axis=1)
+    print(weather_data['Date'])
+    print(weather_data.info())
 
 

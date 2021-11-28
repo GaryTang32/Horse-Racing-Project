@@ -22,8 +22,8 @@ def get_weather_data():
          'happy_velley_max': []})
 
     day1 = datetime.date(2008, 1, 1)
-    #day2 = datetime.date(2019, 9, 9)
-    day2 = datetime.date(2008, 1, 7)
+    day2 = datetime.date(2019, 9, 9)
+    # day2 = datetime.date(2008, 1, 7)
     # Max date = 20190910
 
 
@@ -70,8 +70,8 @@ def get_weather_data():
         weather_data = weather_data.append(data, ignore_index=True)
 
     day1 = datetime.date(2019, 9, 10)
-    #day2 = datetime.date(2021, 10, 30)
-    day2 = datetime.date(2019, 9, 16)
+    day2 = datetime.date(2021, 10, 30)
+    # day2 = datetime.date(2019, 9, 16)
     # day2 = datetime.date(2021, 10, 30)
 
     days = [day1 + datetime.timedelta(days=x) for x in range((day2 - day1).days + 1)]
