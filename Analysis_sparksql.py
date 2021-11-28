@@ -218,33 +218,117 @@ def sectional_preprocessing(df):
     df = df.select('Race_ID', 'Horse_ID', 'Finish_time')
     return df
 
+def calculate_win_percentage(partition):
+    for horse in partition:
+        horse_id = horse[0]
+        win_count = 0
+        total_count = 0
+        win_percentage = list()
+        for i in horse[1]:
+            total_count += 1
+            #i is a tuple having race_id,data,place
+            if i[2] == 1:
+                win_count += 1
+            win_percentage.append((horse_id,i[0],i[1],(win_count/total_count) * 100))
+            
+            
+        yield (horse_id,win_percentage)
+
+def calculate_place_percentage(partition):
+    for horse in partition:
+        horse_id = horse[0]
+        place_count = 0
+        total_count = 0
+        place_percentage = list()
+        for i in horse[1]:
+            total_count += 1
+            #i is a tuple having race_id,data,place
+            if (i[2] == 1) or (i[2] == 2) or (i[2] == 3):
+                place_count += 1
+            place_percentage.append((horse_id,i[0],i[1],(place_count/total_count) * 100))
+            
+        yield (horse_id,place_percentage)
+
+#Example of Divide and Conquer being used
+#pass in the records df to this function
+def get_win_and_place_percentage_df(df,spark):
+    sc = spark.sparkContext
+    df_horse_place = df.select('Race_ID','Horse_ID','Date','Place').\
+        groupby('Horse_ID','Race_ID','Date').agg(max(col('Place'))).\
+        withColumnRenamed('max(Place)','Place').\
+        orderBy('Horse_ID','Date')
+    #difficult to apply pandas type operations on sparksql
+    #requires pyarrow which isnt installing 
+    #Turn to RDD and use Divide and conquer
+    horse_place_rdd = df_horse_place.rdd
+    horse_place_rdd = horse_place_rdd.map(lambda x: (x.Horse_ID,(x.Race_ID,x.Date,x.Place)))
+    #Group by key to get all races that a horse has participated in
+    #Key is horse ID
+    #Make the values to a list format while maintaining the partitioning
+    #that we get by groupByKey by using mapValues
+    grouped_horse_id_rdd = horse_place_rdd.groupByKey().mapValues(list)
+    #apply the mapPartitions method to do D&C
+    win_percent = grouped_horse_id_rdd.mapPartitions(calculate_win_percentage)
+    place_percent = grouped_horse_id_rdd.mapPartitions(calculate_place_percentage)
+    #result is mapped to get only the values from the key,value pair
+    #then we flatMap it to get to rdd format for dataframe
+    win_percent_rdd = win_percent.map(lambda x: x[1]).flatMap(lambda x:x)
+    place_percent_rdd = place_percent.map(lambda x:x[1]).flatMap(lambda x:x)
+    schema_win_percent  = StructType([
+    StructField("Horse_ID",IntegerType(),True),
+    StructField("Race_ID",IntegerType(),True),
+    StructField("Date",DateType(),True),
+    StructField("Win_Perc",FloatType(),True)
+    ])
+
+    win_percent_dataframe = spark.createDataFrame(win_percent_rdd,schema_win_percent)
+
+    schema_place_percent  = StructType([
+    StructField("Horse_ID",IntegerType(),True),
+    StructField("Race_ID",IntegerType(),True),
+    StructField("Date",DateType(),True),
+    StructField("Place_Perc",FloatType(),True)
+    ])
+
+    place_percent_dataframe = spark.createDataFrame(place_percent_rdd,schema_place_percent)
+
+    return win_percent_dataframe,place_percent_dataframe
+
+
 
 if __name__ == "__main__":
 	#initialize spark context
 	spark = SparkSession.builder.appName("Data Processing").getOrCreate()
 
 	df_races, df_races_sectional, df_trainer, df_jockeys, df_records, df_horse, df_sectional = read_data(spark)
-    	df_trainer = trainer_preprocessing(df_trainer)
-    	df_jockeys = jockey_preprocessing(df_jockeys)
-    	df_races = race_preprocessing(df_races)
-        #note that in records_preprocessing, races and horse are already joined into the dataframe
-    	df_records = record_preprocessing(df_records)
-    	df_horse = horse_preprocessing(df_horse)
-    	df_sectional = sectional_preprocessing(df_sectional)
+    df_trainer = trainer_preprocessing(df_trainer)
+    df_jockeys = jockey_preprocessing(df_jockeys)
+    df_races = race_preprocessing(df_races)
+    #note that in records_preprocessing, races and horse are already joined into the dataframe
+    df_records = record_preprocessing(df_records)
+    df_horse = horse_preprocessing(df_horse)
+    df_sectional = sectional_preprocessing(df_sectional)
 
-	print(df_records.count())
-	df_records_jockey = df_records.join(df_jockeys,"Jockey_ID",'left')
-	print(df_records_jockey.count())
-	df_records_jockey_trainer = df_records_jockey.join(df_trainer,"Trainer_ID",'left')
-	print(df_records_jockey_trainer.count())
-	#df_records_jockey_trainer_race = df_records_jockey_trainer.join(df_races,'Race_ID','left')
-	#print(df_records_jockey_trainer_race.count())
-	#df_records_jockey_trainer_race_horse = df_records_jockey_trainer_race.join(df_horse,'Horse_ID','left')
-	#print(df_records_jockey_trainer_race_horse.count())
-	df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer.join(df_sectional,["Horse_ID","Race_ID"],'left')
-	print(df_records_jockey_trainer_race_horse_sectional.count())
+    print(df_records.count())
+    df_records_jockey = df_records.join(df_jockeys,"Jockey_ID",'left')
+    print(df_records_jockey.count())
+    df_records_jockey_trainer = df_records_jockey.join(df_trainer,"Trainer_ID",'left')
+    print(df_records_jockey_trainer.count())
+    #df_records_jockey_trainer_race = df_records_jockey_trainer.join(df_races,'Race_ID','left')
+    #print(df_records_jockey_trainer_race.count())
+    #df_records_jockey_trainer_race_horse = df_records_jockey_trainer_race.join(df_horse,'Horse_ID','left')
+    #print(df_records_jockey_trainer_race_horse.count())
+    df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer.join(df_sectional,["Horse_ID","Race_ID"],'left')
+    print(df_records_jockey_trainer_race_horse_sectional.count())
 
-	spark.stop()
+    df_win_percent,df_place_percent = get_win_and_place_percentage_df(df_records,spark)
+    df_records_jockey_trainer_race_horse_sectional_win = df_records_jockey_trainer_race_horse_sectional.join(df_win_percent,['Horse_ID','Race_ID','Date'])
+    df_records_jockey_trainer_race_horse_sectional_win_place = df_records_jockey_trainer_race_horse_sectional_win.join(df_place_percent,['Horse_ID','Race_ID','Date'])
+
+
+
+
+    spark.stop()
 	
 
 
