@@ -169,8 +169,12 @@ if __name__ == '__main__':
     df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer_race_horse.merge(df_sectional, left_on=['Horse_ID', 'Race_ID'], right_on=['Horse_ID','Race_ID'], how='left')
     # print(df_records_jockey_trainer_race_horse_sectional.shape[0])
     #
+    df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer_race_horse_sectional.dropna()
+
+    df_records_jockey_trainer_race_horse_sectional.to_csv('df_records_jockey_trainer_race_horse_sectional.csv')
 
     print(df_records_jockey_trainer_race_horse_sectional['Date'].head())
+
 
     weather_data = pd.read_csv('weather_data.csv')
     print(weather_data['month'])
@@ -185,7 +189,7 @@ if __name__ == '__main__':
     print(weather_data['Date'])
     print(weather_data.info())
     weather_data = weather_data[['Date', ]]
-    
+
     # df_records_jockey_trainer_race_horse_sectional_weather
 
 
