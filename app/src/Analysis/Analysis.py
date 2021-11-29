@@ -184,5 +184,8 @@ if __name__ == '__main__':
     weather_data['Date'] = weather_data.apply(lambda x: str(x['year']) + '-' + str(x['month']) + '-' + str(x['day']), axis=1)
     print(weather_data['Date'])
     print(weather_data.info())
+    weather_data = weather_data[['Date', ]]
+    
+    # df_records_jockey_trainer_race_horse_sectional_weather
 
 
