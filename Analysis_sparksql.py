@@ -6,41 +6,46 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import StringType
 from pyspark.sql.types import IntegerType
 from pyspark.sql.types import FloatType
+from pyspark.sql.types import StructType
+from pyspark.sql.types import StructField
+from pyspark.sql.types import DateType
+import os
 
 
 #import data
 def read_data(spark):
-    # directory_path1 = os.path.join(os.getcwd(),"Full_Data_Pack_1")
-    # directory_path2 = os.path.join(os.getcwd(),"Full_Data_Pack_2")
+    directory_path1 = os.path.join(os.getcwd(),"Full_Data_Pack_1")
+    directory_path2 = os.path.join(os.getcwd(),"Full_Data_Pack_2")
     
-    # df_horse = spark.read.csv(os.path.join(directory_path1,"horses","horses.csv"), header=True, inferSchema=True)
-    # df_jockey = spark.read.csv(os.path.join(directory_path1,"jockeys","jockeys.csv"), header=True, inferSchema=True)
-    # df_races_sectional = spark.read.csv(os.path.join(directory_path1,"races_sectional","races_sectional.csv"), header=True, inferSchema=True)
-    # df_trainer = spark.read.csv(os.path.join(directory_path1,"trainer","trainer.csv"), header=True, inferSchema=True)
-    # df_sectional = spark.read.csv(os.path.join(directory_path1,"sectional_table","sectional_table.csv"), header=True, inferSchema=True)
-    # df_records = spark.read.csv(os.path.join(directory_path2,"records","records.csv"), header=True, inferSchema=True)
-    # df_races = spark.read.csv(os.path.join(directory_path2,"races","races.csv"), header=True, inferSchema=True)
+    df_horse = spark.read.csv(os.path.join(directory_path1,"horses","horses.csv"), header=True, inferSchema=True)
+    df_jockey = spark.read.csv(os.path.join(directory_path1,"jockeys","jockeys.csv"), header=True, inferSchema=True)
+    df_races_sectional = spark.read.csv(os.path.join(directory_path1,"races_sectional","races_sectional.csv"), header=True, inferSchema=True)
+    df_trainer = spark.read.csv(os.path.join(directory_path1,"trainer","trainer.csv"), header=True, inferSchema=True)
+    df_sectional = spark.read.csv(os.path.join(directory_path1,"sectional_table","sectional_table.csv"), header=True, inferSchema=True)
+    df_records = spark.read.csv(os.path.join(directory_path2,"records","records.csv"), header=True, inferSchema=True)
+    df_races = spark.read.csv(os.path.join(directory_path2,"races","races.csv"), header=True, inferSchema=True)
+    df_foal = spark.read.csv(os.path.join(directory_path1,"horses","foal_date_28112021.csv"), header=True, inferSchema=True)
     
 
-    df_horse = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/horses/horses.csv', header=True, inferSchema=True)
-    df_jockey = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/jockeys/jockeys.csv', header=True, inferSchema=True)
-    df_races_sectional = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/races_sectional/races_sectional.csv', header=True, inferSchema=True)
-    df_trainer = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/trainer/trainer.csv', header=True, inferSchema=True)
-    df_sectional = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/races_sectional/sectional_table.csv', header=True, inferSchema=True)
-    df_records = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_2/races/races.csv', header=True, inferSchema=True)
-    df_races = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_2/records/records.csv', header=True, inferSchema=True)
-    df_foal = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/foal_date_28112021.csv',header = True, inferSchema = True)
+    # df_horse = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/horses/horses.csv', header=True, inferSchema=True)
+    # df_jockey = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/jockeys/jockeys.csv', header=True, inferSchema=True)
+    # df_races_sectional = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/races_sectional/races_sectional.csv', header=True, inferSchema=True)
+    # df_trainer = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/trainer/trainer.csv', header=True, inferSchema=True)
+    # df_sectional = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_1/races_sectional/sectional_table.csv', header=True, inferSchema=True)
+    # df_records = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_2/races/races.csv', header=True, inferSchema=True)
+    # df_races = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horse_racing/Full_Data_Pack_2/records/records.csv', header=True, inferSchema=True)
+    # df_foal = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/foal_date_28112021.csv',header = True, inferSchema = True)
 
     return df_races, df_races_sectional, df_trainer, df_jockey, df_records, df_horse, df_sectional,df_foal
 
 #trainer preprocessing
 def trainer_preprocessing(df):
-    df = df.withColumn('Total_wins',when(df_trainer["Total_wins"].isNull(),0).\
-                      otherwise(df_trainer["Total_wins"]))
-    df = df.withColumn('Total_second_places',when(df_trainer["Total_second_places"].isNull(),0).\
-                      otherwise(df_trainer["Total_second_places"]))
-    df = df.withColumn('Total_third_places',when(df_trainer["Total_third_places"].isNull(),0).\
-                      otherwise(df_trainer["Total_third_places"]))
+    df = df.withColumn('Total_wins',when(df["Total_wins"].isNull(),0).\
+                      otherwise(df["Total_wins"]))
+    df = df.withColumn('Total_second_places',when(df["Total_second_places"].isNull(),0).\
+                      otherwise(df["Total_second_places"]))
+    df = df.withColumn('Total_third_places',when(df["Total_third_places"].isNull(),0).\
+                      otherwise(df["Total_third_places"]))
     df = df.select("Trainer_ID","Total_wins","Total_second_places","Total_third_places","Total_rides")
     df = df.select("Trainer_ID",(col("Total_wins")/col("Total_rides")).alias("trainer_first_place_ratio"),\
                                 (col("Total_second_places")/col("Total_rides")).alias("trainer_second_place_ratio"),\
@@ -51,12 +56,12 @@ def trainer_preprocessing(df):
 
 #jockey preprocessing
 def jockey_preprocessing(df):
-    df = df.withColumn('Total_wins',when(df_trainer["Total_wins"].isNull(),0).\
-                      otherwise(df_trainer["Total_wins"]))
-    df = df.withColumn('Total_second_places',when(df_trainer["Total_second_places"].isNull(),0).\
-                      otherwise(df_trainer["Total_second_places"]))
-    df = df.withColumn('Total_third_places',when(df_trainer["Total_third_places"].isNull(),0).\
-                      otherwise(df_trainer["Total_third_places"]))
+    df = df.withColumn('Total_wins',when(df["Total_wins"].isNull(),0).\
+                      otherwise(df["Total_wins"]))
+    df = df.withColumn('Total_second_places',when(df["Total_second_places"].isNull(),0).\
+                      otherwise(df["Total_second_places"]))
+    df = df.withColumn('Total_third_places',when(df["Total_third_places"].isNull(),0).\
+                      otherwise(df["Total_third_places"]))
     df = df.select("Jockey_ID","Total_wins","Total_second_places","Total_third_places","Total_rides")
     df = df.select("Jockey_ID",(col("Total_wins")/col("Total_rides")).alias("trainer_first_place_ratio"),\
                                 (col("Total_second_places")/col("Total_rides")).alias("trainer_second_place_ratio"),\
@@ -146,7 +151,7 @@ def record_preprocessing(df,df_races,df_horses):
     
     df = df.drop('Record_ID','Horse_Number','Horse_Code')
     df = df.withColumn('Win_odds',col('Win_odds').cast(FloatType()))
-    df = df.join(df_races.select('Race_ID','Prize','Date'),'Race_ID')
+    df = df.join(df_races.select('Race_ID','Course','Prize','Date'),'Race_ID')
     df = df.join(df_horses.select("Horse_ID","Age","State","Sex","Foal_Date"),"Horse_ID")
     spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
     df = df.withColumn('Date',to_date(col('Date'),"M/dd/yyyy"))
@@ -162,17 +167,28 @@ def record_preprocessing(df,df_races,df_horses):
     #floor(datediff(col("First_race_date_df"),col("Foal Date"))/365)
     #join the above with df
     #fill the missing values with the mean value for age_at_first_race
-    #df = df.select('*',(3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).\
-    #                    alias('Age_At_Race'))
+    df = df.select('*',(3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).\
+                       alias('Age_At_Race'))
 
-    df = df.select('*',when((df["Foal_Date"].isNull()),\
-                            (3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).alias('Age_At_Race')).\
-                       otherwise(floor(datediff(col("Date"),col("Foal_Date"))/365)).alias('Age_At_Race'))
-    
-    df = df.select('*',when(("Foal_date = 'Invalid Date'"),\
-                            (3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).alias('Age_At_Race')).\
-                       otherwise(floor(datediff(col("Date"),col("Foal_Date"))/365)).alias('Age_At_Race'))
+#     df = df.select('*',when((df["Foal_Date"].isNull()),\
+#                             (3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).alias('Age_At_Race')).\
+#                        otherwise(floor(datediff(col("Date"),col("Foal_Date"))/365)).alias('Age_At_Race'))
+#     df = df.select('*',when((df["Foal_Date"].isNull()),\
+#                             (datediff(col("Date"),col("First_Race_Date"))).alias('Age_At_Race')).\
+#                         otherwise((datediff(col("Date"),col("Foal_Date"))).alias('Age_At_Race')))
 
+
+#     df = df.withColumn("Age_At_Race",when((df["Foal_Date"].isNull()),\
+#                             (3 + floor(datediff(col("Date"),col("First_Race_Date"))/365))).\
+#                        otherwise(floor(datediff(col("Date"),col("Foal_Date"))/365)))
+
+#     df = df.withColumn("Age_At_Race",when((col('Foal_Date') == 'Invalid Date'),\
+#                             (3 + floor(datediff(col("Date"),col("First_Race_Date"))/365))).\
+#                        otherwise(floor(datediff(col("Date"),col("Foal_Date"))/365)))
+    # df = df.select('*',when((col('Foal_date') == 'Invalid Date'),\
+    #                         (3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).alias('Age_At_Race')).\
+    #                    otherwise(floor(datediff(col("Date"),col("Foal_Date"))/365)).alias('Age_At_Race'))
+    print(df.show(2))
     #making Win Odds into a value between 0 and 1
     df_sum_win_odds_reciprocal = df.select("Race_ID","Horse_ID","Win_odds","Prize",(1/col("Win_odds")).alias('Reciprocal Win Odds'))\
                      .groupBy("Race_ID").sum("Reciprocal Win Odds")\
@@ -185,14 +201,14 @@ def record_preprocessing(df,df_races,df_horses):
     df = df.withColumn("Prize",regexp_replace("Prize",",","").cast(IntegerType()))\
                      .select('Race_ID',"Horse_ID","Weight","Weight_Declared",\
                             "Win_odds","Draw","Place","Prize","Date","State","Sex","First_Race_Date",\
-                            "Age_At_Race")\
+                            "Age_At_Race","Jockey_ID","Trainer_ID")\
                      .join(df_sum_win_odds_reciprocal,"Race_ID")\
                      .select('Race_ID',"Horse_ID","Weight","Weight_Declared",\
                             "Win_odds","Draw","Place","Prize","Date","State","Sex","First_Race_Date",\
-                            "Age_At_Race",(col("Prize")/col("Sum Reciprocal")).alias("Available Prize Money"))\
+                            "Age_At_Race","Jockey_ID","Trainer_ID",(col("Prize")/col("Sum Reciprocal")).alias("Available Prize Money"))\
                      .select('Race_ID',"Horse_ID","Weight","Weight_Declared",\
                             "Win_odds","Draw","Place","Prize","Date","State","Sex","First_Race_Date",\
-                            "Age_At_Race",((col("Available Prize Money")/col("Win_odds"))/col("Prize")).alias("Win_odds_%"))\
+                            "Age_At_Race","Jockey_ID","Trainer_ID",((col("Available Prize Money")/col("Win_odds"))/col("Prize")).alias("Win_odds_%"))\
                      .orderBy("Race_ID")
     print('Win odds calculated')
     #drop weight_declared as it has too many missing values
@@ -222,8 +238,8 @@ def record_preprocessing(df,df_races,df_horses):
     #list of race ids with only 1 to 4 competitors
     race_id_list = df_low_placings.select("Race_ID").rdd.map(lambda x:x.Race_ID).collect()
     df = df.select('Race_ID',"Horse_ID","Weight","Age_At_Race",\
-                            "Win_odds","Win_odds_%","Draw","Place","Prize","Date","State","Sex","First_Race_Date",\
-                            ).where(~col("Race_ID").isin(race_id_list))
+                            "Win_odds","Win_odds_%","Draw","Place","Prize","Date","State","Sex","First_Race_Date","Jockey_ID","Trainer_ID")\
+                            .where(~col("Race_ID").isin(race_id_list))
     return df
 
 
@@ -318,45 +334,62 @@ def get_win_and_place_percentage_df(df,spark):
     return win_percent_dataframe,place_percent_dataframe
 
 
+def get_weather_data(spark):
+    pipeline1 = "{'$project': {'day': 1,'month':1,'year':1,'sha_tin_max':1,'sha_tin_min':1,'_id':0}}"
+    pipeline2 = "{'$project': {'day': 1,'month':1,'year':1,'happy_velley_max':1,'happy_velley_min':1,'_id':0}}"
+    df1 = spark.read.format("mongo").option('pipeline',pipeline1).load()
+    df2 = spark.read.format("mongo").option('pipeline',pipeline2).load()
+    df1 = df1.select('*',lit('Sha Tin').alias('Course'))\
+             .withColumnRenamed('sha_tin_max','MaxTemp')\
+             .withColumnRenamed('sha_tin_min','MinTemp')
+    df2 = df2.select('*',lit('Happy Valley').alias('Course'))\
+             .withColumnRenamed('happy_velley_max','MaxTemp')\
+             .withColumnRenamed('happy_velley_min','MinTemp')
+    df1 = df1.select(concat_ws('/',df1.month.cast(IntegerType()),df1.day.cast(IntegerType()),df1.year.cast(IntegerType())).alias('Date'),'Course','MaxTemp','MinTemp')
+    df2 = df2.select(concat_ws('/',df2.month.cast(IntegerType()),df2.day.cast(IntegerType()),df2.year.cast(IntegerType())).alias('Date'),'Course','MaxTemp','MinTemp')
+    spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
+    df1 = df1.withColumn('Date',to_date(col('Date'),"M/dd/yyyy"))
+    df2 = df2.withColumn('Date',to_date(col('Date'),"M/dd/yyyy"))
+    return df1.union(df2)
 
 if __name__ == "__main__":
-	#initialize spark context
-	spark = SparkSession.\
-        builder.\
-        appName("Data Processing_Horse Racing").\
-        getOrCreate()
-            
-        df_races, df_races_sectional, df_trainer, df_jockeys, df_records, df_horse, df_sectional, df_foal = read_data(spark)
-        df_trainer = trainer_preprocessing(df_trainer)
-        df_jockeys = jockey_preprocessing(df_jockeys)
-        df_races = race_preprocessing(df_races)
-        df_horse = horse_preprocessing(df_horse)
-        df_horse = foal_preprocessing(df_horse,df_foal)
-        #note that in records_preprocessing, races and horse are already joined into the dataframe
-        df_records = record_preprocessing(df_records,df_races,df_horse)
-        
-        df_sectional = sectional_preprocessing(df_sectional)
+    #initialize spark context
+    spark = SparkSession.builder.appName("Data Processing_Horse Racing").config("spark.mongodb.input.uri", "mongodb://127.0.0.1/HorseRacing.WeatherData") \
+    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/HorseRacing.WeatherData").getOrCreate()
 
-        print(df_records.count())
-        df_records_jockey = df_records.join(df_jockeys,"Jockey_ID",'left')
-        print(df_records_jockey.count())
-        df_records_jockey_trainer = df_records_jockey.join(df_trainer,"Trainer_ID",'left')
-        print(df_records_jockey_trainer.count())
-        #df_records_jockey_trainer_race = df_records_jockey_trainer.join(df_races,'Race_ID','left')
-        #print(df_records_jockey_trainer_race.count())
-        #df_records_jockey_trainer_race_horse = df_records_jockey_trainer_race.join(df_horse,'Horse_ID','left')
-        #print(df_records_jockey_trainer_race_horse.count())
-        df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer.join(df_sectional,["Horse_ID","Race_ID"],'left')
-        print(df_records_jockey_trainer_race_horse_sectional.count())
+    df_races, df_races_sectional, df_trainer, df_jockeys, df_records, df_horse, df_sectional, df_foal = read_data(spark)
+    df_trainer = trainer_preprocessing(df_trainer)
+    df_jockeys = jockey_preprocessing(df_jockeys)
+    df_races = race_preprocessing(df_races)
+    df_horse = horse_preprocessing(df_horse)
+    df_horse = foal_preprocessing(df_horse,df_foal)
+    #note that in records_preprocessing, races and horse are already joined into the dataframe
+    df_records = record_preprocessing(df_records,df_races,df_horse)
+    df_weather = get_weather_data(spark)
+    df_records = df_records.join(df_weather,(df_records["Date"] == df_weather["Date"]) & (df_records["Course"] == df_weather["Course"]))
+    df_sectional = sectional_preprocessing(df_sectional)
 
-        df_win_percent,df_place_percent = get_win_and_place_percentage_df(df_records,spark)
-        df_records_jockey_trainer_race_horse_sectional_win = df_records_jockey_trainer_race_horse_sectional.join(df_win_percent,['Horse_ID','Race_ID','Date'])
-        print('Win percentage and place percentage calculated')
-        df_records_jockey_trainer_race_horse_sectional_win_place = df_records_jockey_trainer_race_horse_sectional_win.join(df_place_percent,['Horse_ID','Race_ID','Date'])
-        print(df_records_jockey_trainer_race_horse_sectional_win_place.count())
-        print('done')
-        spark.stop()
-	
+    print(df_records.show(2))
+    print(df_jockeys.show(2))
+    df_records_jockey = df_records.join(df_jockeys,"Jockey_ID",'left')
+    print(df_records_jockey.count())
+    df_records_jockey_trainer = df_records_jockey.join(df_trainer,"Trainer_ID",'left')
+    print(df_records_jockey_trainer.count())
+    #df_records_jockey_trainer_race = df_records_jockey_trainer.join(df_races,'Race_ID','left')
+    #print(df_records_jockey_trainer_race.count())
+    #df_records_jockey_trainer_race_horse = df_records_jockey_trainer_race.join(df_horse,'Horse_ID','left')
+    #print(df_records_jockey_trainer_race_horse.count())
+    df_records_jockey_trainer_race_horse_sectional = df_records_jockey_trainer.join(df_sectional,["Horse_ID","Race_ID"],'left')
+    print(df_records_jockey_trainer_race_horse_sectional.count())
+
+    df_win_percent,df_place_percent = get_win_and_place_percentage_df(df_records,spark)
+    df_records_jockey_trainer_race_horse_sectional_win = df_records_jockey_trainer_race_horse_sectional.join(df_win_percent,['Horse_ID','Race_ID','Date'])
+    print('Win percentage and place percentage calculated')
+    df_records_jockey_trainer_race_horse_sectional_win_place = df_records_jockey_trainer_race_horse_sectional_win.join(df_place_percent,['Horse_ID','Race_ID','Date'])
+    print(df_records_jockey_trainer_race_horse_sectional_win_place.count())
+    print('done')
+    spark.stop()
+    
 
 
 
