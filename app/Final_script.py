@@ -20,20 +20,25 @@ from pyspark.ml.evaluation import RegressionEvaluator
 from pyspark.ml.feature import StringIndexer
 from pyspark.ml.feature import MinMaxScaler
 from pyspark.streaming import StreamingContext
+from datetime import date
+import pyspark.sql.functions as f
+from pyspark.sql import Window
+from flask import Flask
+from flask import Flask, render_template
 
 #import data
 def read_data(spark):
     directory_path1 = os.path.join(os.getcwd(),"Full_Data_Pack_1")
     directory_path2 = os.path.join(os.getcwd(),"Full_Data_Pack_2")
 
-    df_horse = spark.read.csv(os.path.join("horses.csv"), header=True, inferSchema=True)
-    df_jockey = spark.read.csv(os.path.join("jockeys.csv"), header=True, inferSchema=True)
-    df_races_sectional = spark.read.csv(os.path.join("races_sectional.csv"), header=True, inferSchema=True)
-    df_trainer = spark.read.csv(os.path.join("trainer.csv"), header=True, inferSchema=True)
-    df_sectional = spark.read.csv(os.path.join("sectional_table.csv"), header=True, inferSchema=True)
-    df_records = spark.read.csv(os.path.join("records.csv"), header=True, inferSchema=True)
-    df_races = spark.read.csv(os.path.join("races.csv"), header=True, inferSchema=True)
-    df_foal = spark.read.csv(os.path.join("foal_date.csv"), header=True, inferSchema=True)
+    df_horse = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/horses.csv', header=True, inferSchema=True)
+    df_jockey = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/jockeys.csv', header=True, inferSchema=True)
+    df_races_sectional = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/races_sectional.csv', header=True, inferSchema=True)
+    df_trainer = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/trainer.csv', header=True, inferSchema=True)
+    df_sectional = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/sectional_table.csv', header=True, inferSchema=True)
+    df_records = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/records.csv', header=True, inferSchema=True)
+    df_races = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/races.csv', header=True, inferSchema=True)
+    df_foal = spark.read.csv(r'hdfs://vm1:9000/user/azureuser/foal_date_28112021.csv', header=True, inferSchema=True)
     
     return df_races, df_races_sectional, df_trainer, df_jockey, df_records, df_horse, df_sectional,df_foal
 
@@ -142,17 +147,7 @@ def race_preprocessing(df):
 
 def record_preprocessing(df,df_races,df_horses):
     def parse_placings(x):
-        return int(x.split(" ")[0])
-    
-#     def parse_finish_time(x):
-#         print(str(x))
-#         x = str(x)
-#         if ':' in x:
-#             time = int(x.split(":")[0]) * 60 * 100 + int(x.split(":")[1].split(".")[0]) * 100 + int(x.split(":")[1].split(".")[1])
-#         else :
-# #             print(x)
-#             time = int(x.split(".")[0]) * 100 + int(x.split(".")[1])
-#         return time#     
+        return int(x.split(" ")[0])  
 
     def parse_finish_time(x):
 #         print(str(x))
@@ -171,7 +166,7 @@ def record_preprocessing(df,df_races,df_horses):
     
     df = df.select('*').where('Finish_time is not null').where('Place_Section_1 is not null')
     df = df.withColumn("Finish_time_mille_second", convert_time(df['Finish_time']))
-    df.show(2)
+    print('Parsed the finishing time of the dataset')
     
     df = df.drop('Record_ID','Horse_Number','Horse_Code')
     df = df.withColumn('Win_odds',col('Win_odds').cast(FloatType()))
@@ -180,6 +175,8 @@ def record_preprocessing(df,df_races,df_horses):
     spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
     df = df.withColumn('Date',to_date(col('Date'),"yyyy-mm-dd"))
     print('Cast Date')
+
+
     df = df.drop('Age')
     first_race_date_df = df.select('Horse_ID','Date').\
                     groupby('Horse_ID').agg(min('Date')).\
@@ -195,7 +192,7 @@ def record_preprocessing(df,df_races,df_horses):
     df = df.select('*',(3 + floor(datediff(col("Date"),col("First_Race_Date"))/365)).\
                        alias('Age_At_Race'))
     
-    print(df.show(2))
+    
     #making Win Odds into a value between 0 and 1
     df_sum_win_odds_reciprocal = df.select("Race_ID","Horse_ID","Win_odds","Prize",(1/col("Win_odds")).alias('Reciprocal Win Odds'))\
                      .groupBy("Race_ID").sum("Reciprocal Win Odds")\
@@ -224,7 +221,7 @@ def record_preprocessing(df,df_races,df_horses):
     #As Weight declared has only 12 pieces of data with '---', we drop these too
     df = df.select("*").where("Weight != '---'")
     
-    #There are races with only 1 to 4 competitors. These will be dropped
+     #There are races with only 1 to 4 competitors. These will be dropped
     df_low_placings = None
     for i in range(1,5):
         if df_low_placings == None:
@@ -252,7 +249,7 @@ def record_preprocessing(df,df_races,df_horses):
 
 #horse_preprocessing
 def horse_preprocessing(df):
-    df = df.select('Horse_ID', 'State', 'Country', 'Age', 'Color', 'Sex', 'Import_type', 'Total_Stakes', 'Last_Rating')
+    df = df.select('Horse_ID', 'Horse_Name','State', 'Country', 'Age', 'Color', 'Sex', 'Import_type', 'Total_Stakes', 'Last_Rating')
     return df
 
 #sectional_preprocessing
@@ -308,14 +305,17 @@ def get_win_and_place_percentage_df(df,spark):
     #Turn to RDD and use Divide and conquer
     horse_place_rdd = df_horse_place.rdd
     horse_place_rdd = horse_place_rdd.map(lambda x: (x.Horse_ID,(x.Race_ID,x.Date,x.Place)))
+    
     #Group by key to get all races that a horse has participated in
     #Key is horse ID
     #Make the values to a list format while maintaining the partitioning
     #that we get by groupByKey by using mapValues
     grouped_horse_id_rdd = horse_place_rdd.groupByKey().mapValues(list)
+    
     #apply the mapPartitions method to do D&C
     win_percent = grouped_horse_id_rdd.mapPartitions(calculate_win_percentage)
     place_percent = grouped_horse_id_rdd.mapPartitions(calculate_place_percentage)
+    
     #result is mapped to get only the values from the key,value pair
     #then we flatMap it to get to rdd format for dataframe
     win_percent_rdd = win_percent.map(lambda x: x[1]).flatMap(lambda x:x)
@@ -343,8 +343,13 @@ def get_win_and_place_percentage_df(df,spark):
 def get_weather_data(spark):
     pipeline1 = "{'$project': {'day': 1,'month':1,'year':1,'sha_tin_max':1,'sha_tin_min':1,'_id':0}}"
     pipeline2 = "{'$project': {'day': 1,'month':1,'year':1,'happy_velley_max':1,'happy_velley_min':1,'_id':0}}"
-    df1 = spark.read.format("mongo").option('pipeline',pipeline1).load()
-    df2 = spark.read.format("mongo").option('pipeline',pipeline2).load()
+    df1 = spark.read.format("com.mongodb.spark.sql.DefaultSource")\
+        .option("database","HorseRacing")\
+            .option("collection","WeatherData").option('pipeline',pipeline1).load()
+
+    df2 = spark.read.format("com.mongodb.spark.sql.DefaultSource")\
+        .option("database","HorseRacing")\
+            .option("collection","WeatherData").option('pipeline',pipeline2).load()
     # raw = spark.read.csv('weather_data.csv',header=True, inferSchema=True)
 
     
@@ -368,3 +373,177 @@ def get_weather_data(spark):
     df1 = df1.withColumn('Weather_Date',to_date(col('Weather_Date'),"M/dd/yyyy"))
     df2 = df2.withColumn('Weather_Date',to_date(col('Weather_Date'),"M/dd/yyyy"))
     return df1.union(df2)
+
+def write_dataset_to_mongoDB(spark,df,dbname,collectionname):
+    try:
+        df.write.format("com.mongodb.spark.sql.DefaultSource")\
+            .mode("append")\
+            .option("database",dbname)\
+            .option("collection",collectionname)\
+            .save()
+        return True
+    except BaseException as err:
+        return f"Unexpected {err=}, {type(err)=}"
+
+
+def read_from_mongoDB(spark,dbname,collectionname):
+    try:
+        df = spark.read.format("com.mongodb.spark.sql.DefaultSource")\
+        .option("database",dbname)\
+            .option("collection",collectionname).load()
+        return df
+    except BaseException as err:
+        return f"Unexpected {err=}, {type(err)=}"
+
+def model_and_predict(df_dataset):
+    temp = df_dataset.select('Date').select(max('Date')).withColumnRenamed('max(Date)','max_date')
+    df_dataset = df_dataset.join(temp)
+    trainingData = df_dataset.select('*').where('Date != max_date')
+    testData = df_dataset.select('*').where('Date == max_date')
+
+    VectorAssm = VectorAssembler(inputCols=features_cols, outputCol='features')
+    df_vector_dataset = VectorAssm.transform(df_dataset)
+
+    scaler = MinMaxScaler(inputCol = "features" , outputCol="features_scaled")
+    df_vector_dataset_scaled = scaler.fit(df_vector_dataset).transform(df_vector_dataset)
+
+    featureIndexer = VectorIndexer(inputCol = "features_scaled", outputCol="indexedFeatures").fit(df_vector_dataset_scaled)
+
+    gbt = GBTRegressor(featuresCol="indexedFeatures", labelCol="Target", maxIter=20)
+    # rf = RandomForestRegressor(featuresCol="indexedFeatures", labelCol="Target")
+
+    pipeline = Pipeline(stages=[VectorAssm, scaler, featureIndexer, gbt])
+    # pipeline_rf = Pipeline(stages=[featureIndexer, rf])
+
+    model = pipeline.fit(trainingData)
+
+    # model_rf = pipeline_rf.fit(trainingData)
+
+    # Make predictions.
+    predictions = model.transform(testData)
+    
+    # Select (prediction, true label) and compute test error
+    evaluator = RegressionEvaluator(
+        labelCol="Target", predictionCol="prediction", metricName="rmse")
+
+    rmse = evaluator.evaluate(predictions)
+    print("GBT Root Mean Squared Error (RMSE) on test data = %g" % (rmse * 10)) 
+
+    return predictions
+
+
+if __name__ == "__main__":
+    #initialize spark context
+    spark = SparkSession.builder.master('spark://vm1:7077').appName("Data Processing_Horse Racing").config("spark.mongodb.input.uri", "mongodb://20.187.94.145/HorseRacing.WeatherData") \
+    .config("spark.mongodb.output.uri", "mongodb://20.187.94.145/HorseRacing.WeatherData")\
+        .config('spark.jars.packages', 'org.mongodb.spark:mongo-spark-connector_2.12:3.0.1').getOrCreate()
+    df_races, df_races_sectional, df_trainer, df_jockeys, df_records, df_horse, df_sectional, df_foal = read_data(spark)
+
+    df_trainer = trainer_preprocessing(df_trainer)
+    df_jockeys = jockey_preprocessing(df_jockeys)
+    df_races = race_preprocessing(df_races)
+    df_horse = horse_preprocessing(df_horse)
+    df_horse = foal_preprocessing(df_horse,df_foal)
+    #note that in records_preprocessing, races and horse are already joined into the dataframe
+    df_records = record_preprocessing(df_records,df_races,df_horse)
+
+    #Connects to mongodb and gets the Weather data
+    df_weather = get_weather_data(spark)
+    df_records = df_records.join(df_weather,(df_records["Date"] == df_weather["Weather_Date"]) & (df_records["Course"] == df_weather["Weather_Course"]))
+
+    df_records_jockey = df_records.join(df_jockeys,"Jockey_ID",'left')
+    df_records_jockey_trainer = df_records_jockey.join(df_trainer,"Trainer_ID",'left')
+    df_win_percent,df_place_percent = get_win_and_place_percentage_df(df_records,spark)
+    df_records_jockey_trainer_win = df_records_jockey_trainer.join(df_win_percent,['Horse_ID','Race_ID','Date'])
+    #print('Win percentage and place percentage calculated')
+    df_records_jockey_trainer_win_place = df_records_jockey_trainer_win.join(df_place_percent,['Horse_ID','Race_ID','Date'])
+    print(df_records_jockey_trainer_win_place.count())
+    #print('done')
+
+    df_dataset = df_records_jockey_trainer_win_place.select('Date','Weight','Age_At_Race','Win_odds','Win_odds_%', 'Draw',\
+                                                       'Prize','Surface_Type','Distance_Type',"Class","Ranking",\
+                                                       'Course','Sex','MaxTemp','MinTemp','jockey_first_place_ratio',\
+                                                       'jockey_second_place_ratio','jockey_third_place_ratio',\
+                                                       'jockey_place_ratio','trainer_first_place_ratio','trainer_second_place_ratio',
+                                                       'trainer_third_place_ratio','trainer_place_ratio','Win_Perc','Place_Perc',\
+                                                        'Finish_time_mille_second' )
+    df_dataset = df_dataset.withColumn("Weight",df_dataset.Weight.cast(FloatType()))
+    df_dataset = df_dataset.withColumn("Draw",df_dataset.Weight.cast(FloatType()))
+    df_dataset = df_dataset.withColumnRenamed("Finish_time_mille_second", "Target")
+
+    df_dataset = df_dataset.select('*').where('Ranking is not null and Sex is not null and Course is not null and Class is not null and Distance_Type is not null and Surface_Type is not null')
+
+    features_cols =  ["Weight","Age_At_Race","Win_odds","Win_odds_%","Draw","Prize","Surface_Type_index","Distance_Type_index",
+    "Class_index","Ranking_index","Course_index","Sex_index","MaxTemp","MinTemp","jockey_first_place_ratio","jockey_second_place_ratio",
+    "jockey_third_place_ratio","jockey_place_ratio","trainer_first_place_ratio","trainer_second_place_ratio",
+    "trainer_third_place_ratio","trainer_place_ratio","Win_Perc","Place_Perc"]
+
+    string_cols = ["Surface_Type","Distance_Type","Class","Ranking","Course","Sex"]
+    string_cols_idx = ["Surface_Type_index","Distance_Type_index","Class_index","Ranking_index","Course_index","Sex_index"]
+        
+    StringIdxer = StringIndexer(inputCols=string_cols, outputCols=string_cols_idx)
+
+    df_dataset_to_mongo = StringIdxer.fit(df_dataset).transform(df_dataset)
+
+    #mongo insertion
+    #we use the mongodb instance in our vm1 as a form of intermediate storage 
+    #such that when we need to retrain/predict results for previous races, 
+    #we can use the same stored data without having to reread from HDFS and reprocessing
+    insertionstatus = write_dataset_to_mongoDB(spark,df_dataset_to_mongo,"HorseRacing","HorseRacingProcessedDataSet")
+
+    if insertionstatus == True:
+        #read back from MongoDB
+        df_dataset2 = read_from_mongoDB(spark,"HorseRacing","HorseRacingProcessedDataSet")
+
+        if ~isinstance(df_dataset2,str):
+
+            predictions = model_and_predict(df_dataset2)
+
+            output = predictions.select('Date','Race_ID','Horse_ID','Trainer_ID','Jockey_ID','Weight', 'Win_odds','Draw',col('prediction') * lit(10)).withColumnRenamed('(prediction * 10)','predicted finishing time')
+            df_races_out, df_races_sectional_out, df_trainer_out, df_jockeys_out, df_records_out, df_horse_out, df_sectional_out, df_foal_out = read_data(spark)
+
+            df_jockeys_out = df_jockeys_out.withColumnRenamed("name","Jockey_name")
+            df_trainer_out = df_trainer_out.withColumnRenamed("name","Trainer_name")
+
+            output = output.join(df_races_out.select('Race_ID','Race_Type'), 'Race_ID','left')
+            output = output.join(df_horse_out.select('Horse_ID','Horse_Name'), 'Horse_ID','left')
+            output = output.join(df_trainer_out.select('Trainer_ID','Trainer_name'), 'Trainer_ID','left')
+            output = output.join(df_jockeys_out.select('Jockey_ID','Jockey_name'), 'Jockey_ID','left')
+
+            output_temp = output.withColumn('Place',f.row_number().over(
+                Window.partitionBy("Race_ID").orderBy(col("predicted finishing time").asc())))
+
+            output_final = output_temp.select('Race_Type','Horse_Name','Trainer_name','Jockey_name','Weight','Draw','Win_odds','predicted finishing time','Place')
+
+            output_final.show(output_final.count())
+
+            today_date = date.today().strftime("%Y-%m-%d")
+            pred_date = output.select('Date').distinct().rdd.map(lambda row: [str(c) for c in row]).collect()[0][0]
+            output_table = output_final.rdd.map(lambda row: [str(c) for c in row]).collect()
+
+            app = Flask(__name__)
+
+            @app.route("/")
+            def prediction_results():
+                return render_template('main.html',Date= date.today().strftime("%Y-%m-%d") , Pred_date=pred_date, result = output_table )
+
+            app.run(host='127.0.0.1',port=5000,debug=True) 
+
+        else:
+            print(df_dataset2)
+            spark.stop()
+    else:
+        print(insertionstatus)
+
+
+
+
+
+
+
+
+    #take from mongo the required train set
+
+
+
+    
