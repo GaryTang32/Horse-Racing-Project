@@ -80,7 +80,7 @@ year_threshold = 2015
 def race_preprocessing(df):
     
     def return_year(x):
-        return int(str(x)[:4])
+        return int(str(x)[-4:])
     
     class_trans_dict = {
         'Hong Kong Group One': 'Group One',
@@ -151,7 +151,7 @@ def record_preprocessing(df,df_races,df_horses):
 
     def parse_finish_time(x):
 #         print(str(x))
-        time = int(x[0]) * 60 * 100 + int(x[2:4]) * 100 + int(x[5:]) 
+        time = int(x[:2]) * 60 * 100 + int(x[3:5]) * 100 + int(x[6:]) 
         time = time / 1000
         return time
     
@@ -173,7 +173,7 @@ def record_preprocessing(df,df_races,df_horses):
     df = df.join(df_races.select('Race_ID','Course','Prize','Date',"Distance_Type","Class","Ranking","Surface_Type"),'Race_ID')
     df = df.join(df_horses.select("Horse_ID","Age","State","Sex","Foal_Date"),"Horse_ID")
     spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
-    df = df.withColumn('Date',to_date(col('Date'),"yyyy-mm-dd"))
+    df = df.withColumn('Date',to_date(col('Date'),"M/dd/yyyy"))
     print('Cast Date')
 
 
@@ -429,7 +429,7 @@ def model_and_predict(df_dataset):
     rmse = evaluator.evaluate(predictions)
     print("GBT Root Mean Squared Error (RMSE) on test data = %g" % (rmse * 10)) 
 
-    return predictions
+    return predictions, rmse
 
 
 if __name__ == "__main__":
@@ -460,7 +460,7 @@ if __name__ == "__main__":
     print(df_records_jockey_trainer_win_place.count())
     #print('done')
 
-    df_dataset = df_records_jockey_trainer_win_place.select('Date','Weight','Age_At_Race','Win_odds','Win_odds_%', 'Draw',\
+    df_dataset = df_records_jockey_trainer_win_place.select('Date','Race_ID','Horse_ID','Trainer_ID','Jockey_ID','Weight','Age_At_Race','Win_odds','Win_odds_%', 'Draw',\
                                                        'Prize','Surface_Type','Distance_Type',"Class","Ranking",\
                                                        'Course','Sex','MaxTemp','MinTemp','jockey_first_place_ratio',\
                                                        'jockey_second_place_ratio','jockey_third_place_ratio',\
@@ -497,7 +497,11 @@ if __name__ == "__main__":
 
         if ~isinstance(df_dataset2,str):
 
-            predictions = model_and_predict(df_dataset2)
+            predictions,rmse = model_and_predict(df_dataset2)
+
+	        #produce rmse of prediction
+            with open('rmse.txt','w') as lala:
+                lala.write(str(rmse))
 
             output = predictions.select('Date','Race_ID','Horse_ID','Trainer_ID','Jockey_ID','Weight', 'Win_odds','Draw',col('prediction') * lit(10)).withColumnRenamed('(prediction * 10)','predicted finishing time')
             df_races_out, df_races_sectional_out, df_trainer_out, df_jockeys_out, df_records_out, df_horse_out, df_sectional_out, df_foal_out = read_data(spark)
@@ -520,21 +524,22 @@ if __name__ == "__main__":
             today_date = date.today().strftime("%Y-%m-%d")
             pred_date = output.select('Date').distinct().rdd.map(lambda row: [str(c) for c in row]).collect()[0][0]
             output_table = output_final.rdd.map(lambda row: [str(c) for c in row]).collect()
+            spark.stop()
 
             app = Flask(__name__)
-
             @app.route("/")
             def prediction_results():
                 return render_template('main.html',Date= date.today().strftime("%Y-%m-%d") , Pred_date=pred_date, result = output_table )
 
             app.run(host='127.0.0.1',port=5000,debug=True) 
+            
 
         else:
             print(df_dataset2)
             spark.stop()
     else:
         print(insertionstatus)
-
+        spark.stop()
 
 
 
