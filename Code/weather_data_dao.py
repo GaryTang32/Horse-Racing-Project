@@ -1,11 +1,11 @@
+import datetime
+import os
+import pandas as pd
 import pprint
 import requests
-import datetime
-import pandas as pd
-from bs4 import BeautifulSoup
-import os
-import subprocess
 import stat
+import subprocess
+from bs4 import BeautifulSoup
 
 MAX_AIR_TAG = ['maximum', 'air']
 REL_HUMI_TAG = ['relative', 'humidity']
@@ -17,6 +17,7 @@ HONG_KONG_PARK_TAG = ['hong', 'kong', 'park']
 # mongopath = r'C:\Program Files\MongoDB\Server\4.2\bin'
 mongopath = r'/usr/bin'
 
+
 def get_weather_data():
     weather_data = pd.DataFrame(
         {'year': [], 'month': [], 'day': [], 'humidity': [], 'sha_tin_min': [], 'sha_tin_max': [], 'happy_velley_min': [],
@@ -24,9 +25,6 @@ def get_weather_data():
 
     day1 = datetime.date(2015, 1, 1)
     day2 = datetime.date(2019, 9, 9)
-    #day2 = datetime.date(2008, 1, 7)
-    # Max date = 20190910
-
 
     days = [day1 + datetime.timedelta(days=x) for x in range((day2 - day1).days + 1)]
 
@@ -72,8 +70,6 @@ def get_weather_data():
 
     day1 = datetime.date(2019, 9, 12)
     day2 = datetime.date(2021, 10, 30)
-    #day2 = datetime.date(2019, 9, 16)
-    #day2 = datetime.date(2021, 10, 30)
 
     days = [day1 + datetime.timedelta(days=x) for x in range((day2 - day1).days + 1)]
     for i in days:
@@ -118,10 +114,12 @@ def get_weather_data():
         weather_data = weather_data.append(data, ignore_index=True)
     return weather_data
 
+
 weather_data = get_weather_data()
 
 print(weather_data)
-#Added by Pasindu
+
+# Added by Pasindu
 mongoscript = ""
 data_dictionary = dict(weather_data)
 for row_idx in range(weather_data.shape[0]):
@@ -132,22 +130,21 @@ for row_idx in range(weather_data.shape[0]):
 mongoscript = "db.WeatherData.insertMany([" + mongoscript + "])"
 mongoshellcmd = [mongoscript]
 
-with open('weatherdata_script.txt','w') as f:
+with open('weatherdata_script.txt', 'w') as f:
     for cmd in mongoshellcmd:
         f.writelines(cmd)
-os.chmod(os.path.join(os.getcwd(),"weatherdata_script.txt"),stat.S_IRWXU | stat.S_IRWXO | stat.S_IRWXG )
-mongocmd = f'mongo HorseRacing "{os.path.join(os.getcwd(),"weatherdata_script.txt")}"'
+os.chmod(os.path.join(os.getcwd(), "weatherdata_script.txt"), stat.S_IRWXU | stat.S_IRWXO | stat.S_IRWXG)
+mongocmd = f'mongo HorseRacing "{os.path.join(os.getcwd(), "weatherdata_script.txt")}"'
 
-#cmd_list = [f'cd {mongopath}',mongocmd]
-#cmd_list = ['echo "Came Here"']
+# cmd_list = [f'cd {mongopath}',mongocmd]
+# cmd_list = ['echo "Came Here"']
 
 cmd_list = [mongocmd]
-with open('weatherdata_script.bat','w') as f:
+with open('weatherdata_script.bat', 'w') as f:
     for cmd in cmd_list:
         f.writelines(cmd)
-os.chmod(os.path.join(os.getcwd(),"weatherdata_script.bat"),stat.S_IRWXU | stat.S_IRWXO | stat.S_IRWXG )
+os.chmod(os.path.join(os.getcwd(), "weatherdata_script.bat"), stat.S_IRWXU | stat.S_IRWXO | stat.S_IRWXG)
 
-#output = subprocess.call([os.path.join(os.getcwd(),'weatherdata_script.bat')])
-subprocess.run(mongocmd,shell = True)
-#print('Uploaded successfully' if output == 0 else "Upload unsuccessful")
-
+# output = subprocess.call([os.path.join(os.getcwd(),'weatherdata_script.bat')])
+subprocess.run(mongocmd, shell=True)
+# print('Uploaded successfully' if output == 0 else "Upload unsuccessful")
